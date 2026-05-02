@@ -1,8 +1,10 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+const DEFAULT_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRfaWQiOiIxYjk5YzdkNy1lZTU1LTQ2ZDktYTMxOC1kZWJhMWIwOGMzNjMiLCJzdWIiOiJ0ZXN0In0.j2ctBnU9Yq--bQDb4bLC_3vzJcNiYEodmvkknljfNtQ'
+
 function getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {}
-    const token = localStorage.getItem('dm_token')
+    const token = localStorage.getItem('dm_token') || DEFAULT_TOKEN
     if (token) {
         headers['Authorization'] = `Bearer ${token}`
     }
@@ -10,8 +12,8 @@ function getHeaders(): Record<string, string> {
 }
 
 async function handleResponse(res: Response) {
+    const text = await res.text()
     if (!res.ok) {
-        const text = await res.text()
         try {
             const err = JSON.parse(text)
             throw new Error(err.detail || `HTTP ${res.status}`)
@@ -19,7 +21,6 @@ async function handleResponse(res: Response) {
             throw new Error(text || `HTTP ${res.status}`)
         }
     }
-    const text = await res.text()
     try {
         return JSON.parse(text)
     } catch {
@@ -39,7 +40,7 @@ export async function uploadDocument(file: File) {
 }
 
 export async function getDocStatus(docId: string) {
-    const res = await fetch(`${API_BASE}/v1/documents/${docId}/status/`, {
+    const res = await fetch(`${API_BASE}/v1/documents/${docId}/status`, {
         headers: getHeaders(),
     })
     return handleResponse(res)
@@ -121,12 +122,13 @@ export async function getChatHistory(docId: string) {
 export async function searchDocuments(query: string, tenantId?: string) {
     const params = new URLSearchParams({ q: query })
     if (tenantId) params.append('tenant_id', tenantId)
-
+    
     const res = await fetch(`${API_BASE}/v1/search/?${params}`, {
         headers: getHeaders(),
     })
     return handleResponse(res)
 }
+
 export async function getReviews(docId?: string) {
     const url = docId ? `${API_BASE}/v1/reviews/${docId}` : `${API_BASE}/v1/reviews/`
     const res = await fetch(url, { headers: getHeaders() })
