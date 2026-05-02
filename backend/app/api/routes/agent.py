@@ -11,7 +11,7 @@ from app.api.deps import DBDep, TenantDep
 from app.models.documents import AgentMessage, AgentRole, AgentSession, Document, DocumentStatus
 from app.services.model_router import build_rag_messages, stream_complete
 
-router = APIRouter(prefix="/agent", tags=["agent"])
+router = APIRouter(prefix="", tags=["agent"])
 
 
 class ChatRequest(BaseModel):

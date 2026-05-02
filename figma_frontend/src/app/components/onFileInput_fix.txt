@@ -1,0 +1,5 @@
+  function onFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length >= 1) processSingleFile(files[0])
+    e.target.value = ''
+  }

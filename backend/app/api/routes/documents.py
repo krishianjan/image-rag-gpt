@@ -12,7 +12,7 @@ from app.schemas.documents import (
 )
 from app.services import storage
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="", tags=["documents"])
 
 
 async def _get_doc(db, doc_id: uuid.UUID, tenant_id: uuid.UUID) -> Document:

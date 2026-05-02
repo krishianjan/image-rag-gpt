@@ -5,7 +5,7 @@ const MODELS = [
     { id: 'auto', label: 'Auto (Best Available)', desc: 'Failover across all models' },
     { id: 'groq', label: 'Groq LLaMA 3.3 70B', desc: 'Fastest · Best quality' },
     { id: 'gemini', label: 'Gemini 1.5 Flash', desc: 'Google · Long context' },
-    { id: 'openrouter', label: 'Llama 3.2 (OpenRouter)', desc: 'Free tier fallback' },
+    { id: 'qwen', label: 'Qwen 2.5 VL 3B', desc: 'OpenRouter · Vision capable' },
 ]
 
 interface Props {

@@ -1,10 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
+import { uploadDocument, getDocStatus } from '../lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Cloud, Loader2, CheckCircle2, XCircle, FolderOpen, Images } from 'lucide-react'
-import { uploadDocument, getDocStatus } from '../lib/api'
-import { store } from '../lib/store'
-import AuthModal from './AuthModal'
 
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
 
@@ -23,20 +21,6 @@ const STEPS = [
   '🎉 Intelligence ready. Opening results...',
 ]
 
-const STATUS_DONE = new Set(['READY', 'PARSED'])
-const STATUS_FAIL = new Set(['FAILED'])
-const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/tiff', 'image/webp',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-const MAX_SIZE = 100 * 1024 * 1024
-
-interface UploadItem {
-  file: File
-  status: 'pending' | 'uploading' | 'processing' | 'done' | 'error'
-  docId?: string
-  error?: string
-  progress: number
-}
-
 export default function InteractiveDemo() {
   const navigate = useNavigate()
   const [phase, setPhase] = useState<Phase>('idle')
@@ -44,20 +28,14 @@ export default function InteractiveDemo() {
   const [progress, setProgress] = useState(0)
   const [dragOver, setDragOver] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [showAuth, setShowAuth] = useState(false)
-  const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [multiItems, setMultiItems] = useState<UploadItem[]>([])
-  const [isMultiMode, setIsMultiMode] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const multiRef = useRef<HTMLInputElement>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const stepRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const startStepAnimation = useCallback(() => {
     let i = 0
-    stepRef.current = setInterval(() => {
+    const iv = setInterval(() => {
       setStepIndex(i++)
-      if (i >= STEPS.length) clearInterval(stepRef.current!)
+      if (i >= STEPS.length) clearInterval(iv)
     }, 900)
   }, [])
 
@@ -71,109 +49,60 @@ export default function InteractiveDemo() {
   }, [])
 
   async function processSingleFile(file: File) {
-    if (!store.isAuthenticated()) {
-      setPendingFiles([file])
-      setShowAuth(true)
-      return
-    }
-    if (!ALLOWED_MIME.includes(file.type)) { setErrorMsg(`Unsupported: ${file.type}`); setPhase('error'); return }
-    if (file.size > MAX_SIZE) { setErrorMsg('File exceeds 100MB'); setPhase('error'); return }
+    setPhase('uploading')
+    setProgress(0)
+    setStepIndex(0)
+    setErrorMsg('')
 
-    setPhase('uploading'); setProgress(0); setStepIndex(0); setErrorMsg('')
     try {
-      const { doc_id } = await uploadDocument(file)
+      const data = await uploadDocument(file)
+      const doc_id = data.doc_id
+
       setPhase('processing')
       startStepAnimation()
       startProgressAnimation()
-      pollRef.current = setInterval(async () => {
+
+      const pollInterval = setInterval(async () => {
         try {
           const s = await getDocStatus(doc_id)
-          if (STATUS_DONE.has(s.status)) {
-            clearInterval(pollRef.current!); clearInterval(stepRef.current!)
-            setProgress(100); setStepIndex(STEPS.length - 1); setPhase('done')
-            setTimeout(() => navigate(`/chat/${doc_id}`), 800)
-          } else if (STATUS_FAIL.has(s.status)) {
-            clearInterval(pollRef.current!); clearInterval(stepRef.current!)
-            setErrorMsg(s.error_message ?? 'Processing failed'); setPhase('error')
+          if (s.status === 'READY' || s.status === 'PARSED') {
+            clearInterval(pollInterval)
+            setProgress(100)
+            setStepIndex(STEPS.length - 1)
+            setPhase('done')
+            navigate(`/chat/${doc_id}`)
+          } else if (s.status === 'FAILED') {
+            clearInterval(pollInterval)
+            setErrorMsg(s.error_message ?? 'Processing failed')
+            setPhase('error')
           }
         } catch { }
       }, 3000)
-    } catch (err: any) { setErrorMsg(err.message ?? 'Upload failed'); setPhase('error') }
-  }
-
-  // ── MULTI-IMAGE PROCESSING ─────────────────────────────
-  async function processMultipleFiles(files: File[]) {
-    if (!store.isAuthenticated()) {
-      setPendingFiles(files)
-      setShowAuth(true)
-      return
-    }
-    const validFiles = files.filter(f =>
-      ALLOWED_MIME.includes(f.type) && f.size <= MAX_SIZE
-    ).slice(0, 10) // max 10
-
-    if (validFiles.length === 0) { setErrorMsg('No valid files'); return }
-
-    setIsMultiMode(true)
-    const items: UploadItem[] = validFiles.map(f => ({ file: f, status: 'pending', progress: 0 }))
-    setMultiItems(items)
-
-    for (let i = 0; i < items.length; i++) {
-      setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'uploading' } : it))
-      try {
-        const { doc_id } = await uploadDocument(items[i].file)
-        setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'processing', docId: doc_id, progress: 30 } : it))
-
-        // Poll each doc
-        await new Promise<void>((resolve) => {
-          let ticks = 0
-          const iv = setInterval(async () => {
-            try {
-              const s = await getDocStatus(doc_id)
-              ticks++
-              const p = Math.min(30 + ticks * 7, 95)
-              setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, progress: p } : it))
-              if (STATUS_DONE.has(s.status)) {
-                clearInterval(iv)
-                setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'done', progress: 100 } : it))
-                resolve()
-              } else if (STATUS_FAIL.has(s.status)) {
-                clearInterval(iv)
-                setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'error', error: s.error_message ?? 'Failed' } : it))
-                resolve()
-              }
-            } catch { }
-          }, 3000)
-        })
-      } catch (err: any) {
-        setMultiItems(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'error', error: err.message } : it))
-      }
+    } catch (err: any) {
+      setErrorMsg(err.message ?? 'Upload failed')
+      setPhase('error')
     }
   }
 
   function onDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragOver(false)
+    e.preventDefault()
+    setDragOver(false)
     const files = Array.from(e.dataTransfer.files)
-    if (files.length > 1) processMultipleFiles(files)
-    else if (files.length === 1) processSingleFile(files[0])
+    if (files.length === 1) processSingleFile(files[0])
   }
 
   function onFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    if (files.length > 1) processMultipleFiles(files)
-    else if (files.length === 1) processSingleFile(files[0])
+    if (files.length === 1) processSingleFile(files[0])
     e.target.value = ''
   }
 
   function reset() {
-    if (pollRef.current) clearInterval(pollRef.current)
-    if (stepRef.current) clearInterval(stepRef.current)
-    setPhase('idle'); setProgress(0); setStepIndex(0); setErrorMsg('')
-    setIsMultiMode(false); setMultiItems([])
+    setPhase('idle')
+    setProgress(0)
+    setStepIndex(0)
+    setErrorMsg('')
   }
-
-  const doneCount = multiItems.filter(i => i.status === 'done').length
-  const firstDoneId = multiItems.find(i => i.status === 'done')?.docId
 
   return (
     <section id="demo" className="py-24 px-6 bg-slate-950">
@@ -185,8 +114,7 @@ export default function InteractiveDemo() {
         </div>
 
         <AnimatePresence mode="wait">
-          {/* IDLE */}
-          {phase === 'idle' && !isMultiMode && (
+          {phase === 'idle' && (
             <motion.div key="idle" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               onDragOver={e => { e.preventDefault(); setDragOver(true) }}
               onDragLeave={() => setDragOver(false)}
@@ -197,7 +125,7 @@ export default function InteractiveDemo() {
             >
               <input ref={fileRef} type="file" className="hidden"
                 accept=".pdf,.png,.jpg,.jpeg,.tiff,.webp,.docx"
-                multiple onChange={onFileInput} />
+                onChange={onFileInput} />
               <input ref={multiRef} type="file" className="hidden"
                 accept=".pdf,.png,.jpg,.jpeg,.tiff,.webp,.docx"
                 multiple onChange={onFileInput} />
@@ -219,7 +147,7 @@ export default function InteractiveDemo() {
                   className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm font-medium">
                   <Images className="w-4 h-4" /> Bulk Upload (up to 10)
                 </button>
-                {['Google Drive', 'Dropbox'].map(s => (
+                {['Google Drive', 'Dropbox', 'URL'].map(s => (
                   <button key={s} title="Coming Soon"
                     className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-slate-400 rounded-lg text-sm cursor-not-allowed">
                     <Cloud className="w-4 h-4" /> {s} <span className="text-xs bg-slate-700 px-1.5 py-0.5 rounded">Soon</span>
@@ -229,7 +157,6 @@ export default function InteractiveDemo() {
             </motion.div>
           )}
 
-          {/* UPLOADING single */}
           {phase === 'uploading' && (
             <motion.div key="uploading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="bg-slate-900 rounded-2xl p-12 text-center border border-slate-800">
@@ -238,7 +165,6 @@ export default function InteractiveDemo() {
             </motion.div>
           )}
 
-          {/* PROCESSING single */}
           {phase === 'processing' && (
             <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
@@ -268,59 +194,6 @@ export default function InteractiveDemo() {
             </motion.div>
           )}
 
-          {/* MULTI-IMAGE MODE */}
-          {isMultiMode && (
-            <motion.div key="multi" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-white font-semibold">Bulk Processing</p>
-                  <p className="text-slate-400 text-sm mt-0.5">{doneCount}/{multiItems.length} complete</p>
-                </div>
-                {doneCount === multiItems.length && (
-                  <button onClick={() => firstDoneId && navigate(`/chat/${firstDoneId}`)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-                    Open First Result →
-                  </button>
-                )}
-              </div>
-              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
-                {multiItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="flex-shrink-0">
-                      {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                      {item.status === 'error' && <XCircle className="w-5 h-5 text-rose-400" />}
-                      {['uploading', 'processing'].includes(item.status) && <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />}
-                      {item.status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-slate-600" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm truncate">{item.file.name}</p>
-                      <p className="text-xs text-slate-500">{(item.file.size / 1024).toFixed(0)}KB</p>
-                    </div>
-                    <div className="w-24">
-                      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                          style={{ width: `${item.progress}%` }} />
-                      </div>
-                    </div>
-                    {item.status === 'done' && item.docId && (
-                      <button onClick={() => navigate(`/chat/${item.docId}`)}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 flex-shrink-0">
-                        Chat →
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="p-4 border-t border-slate-800">
-                <button onClick={reset} className="text-xs text-slate-400 hover:text-white transition-colors">
-                  + Upload more files
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* DONE single */}
           {phase === 'done' && (
             <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="bg-slate-900 rounded-2xl border border-emerald-500/30 p-12 text-center">
@@ -330,7 +203,6 @@ export default function InteractiveDemo() {
             </motion.div>
           )}
 
-          {/* ERROR */}
           {phase === 'error' && (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="bg-slate-900 rounded-2xl border border-rose-500/30 p-12 text-center">
@@ -344,15 +216,6 @@ export default function InteractiveDemo() {
           )}
         </AnimatePresence>
       </div>
-
-      <AuthModal
-        open={showAuth}
-        onClose={() => { setShowAuth(false); setPendingFiles([]) }}
-        onSuccess={() => {
-          if (pendingFiles.length > 1) processMultipleFiles(pendingFiles)
-          else if (pendingFiles.length === 1) processSingleFile(pendingFiles[0])
-        }}
-      />
     </section>
   )
 }
