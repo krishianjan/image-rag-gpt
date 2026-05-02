@@ -77,18 +77,18 @@ async def upload_document(
     db.add(doc)
     await db.flush()
 
-    task = parse_document_task.apply_async(
-        kwargs={
-            "doc_id": str(doc_id),
-            "file_path": object_key,
-            "tenant_id": str(tenant_id),
-            "mime_type": file.content_type,
-        },
-        queue="fast_queue",
-    )
-
-    doc.celery_task_id = task.id
-    await db.flush()
+    # Process synchronously (no Redis/Celery needed)
+    try:
+        from app.workers.tasks.parse import parse_document_task
+        parse_document_task(
+            doc_id=str(doc_id),
+            file_path=object_key,
+            tenant_id=str(tenant_id),
+            mime_type=file.content_type,
+        )
+        doc.status = DocumentStatus.PROCESSING
+    except Exception:
+        doc.status = DocumentStatus.PENDING
 
     return UploadResponse(
         doc_id=doc_id,
