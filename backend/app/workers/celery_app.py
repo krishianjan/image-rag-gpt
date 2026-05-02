@@ -1,11 +1,16 @@
 from celery import Celery
+import os
 
 from app.config import settings
 
+# Use RabbitMQ if available, otherwise fall back to Redis
+BROKER_URL = os.getenv("CELERY_BROKER_URL", settings.REDIS_URL)
+RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", settings.REDIS_URL)
+
 celery_app = Celery(
     "documind",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=BROKER_URL,
+    backend=RESULT_BACKEND,
     include=["app.workers.tasks.parse", "app.workers.tasks.embed", "app.workers.tasks.extract"],
 )
 
@@ -19,15 +24,10 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_routes={
-        "app.workers.tasks.parse.parse_document_task": {"queue": "slow_queue"},
-        "app.workers.tasks.parse.classify_document_task": {"queue": "fast_queue"},
-        "app.workers.tasks.embed.embed_chunks_task": {"queue": "slow_queue"},
-        "app.workers.tasks.extract.extract_document_task": {"queue": "slow_queue"},
+        "app.workers.tasks.parse.parse_document_task": {"queue": "fast_queue"},
+        "app.workers.tasks.embed.embed_chunks_task": {"queue": "fast_queue"},
+        "app.workers.tasks.extract.extract_document_task": {"queue": "fast_queue"},
     },
     task_default_queue="fast_queue",
-    task_queues={
-        "fast_queue": {"exchange": "fast_queue", "routing_key": "fast"},
-        "slow_queue": {"exchange": "slow_queue", "routing_key": "slow"},
-    },
     result_expires=86400,
 )
