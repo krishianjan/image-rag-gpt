@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>Set Token</title></head>
+<body>
+<h2>Click the button to set your auth token</h2>
+<button onclick="setToken()" style="padding:20px;font-size:20px;">Set Token & Go to App</button>
+<script>
+function setToken() {
+    localStorage.setItem('dm_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRfaWQiOiIxYjk5YzdkNy1lZTU1LTQ2ZDktYTMxOC1kZWJhMWIwOGMzNjMiLCJzdWIiOiJ0ZXN0In0.j2ctBnU9Yq--bQDb4bLC_3vzJcNiYEodmvkknljfNtQ');
+    alert('Token set! Redirecting...');
+    window.location.href = '/';
+}
+</script>
+</body>
+</html>

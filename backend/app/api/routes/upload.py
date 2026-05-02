@@ -9,7 +9,7 @@ from app.schemas.documents import UploadResponse
 from app.services import storage
 from app.workers.tasks.parse import parse_document_task
 
-router = APIRouter(prefix="/upload", tags=["upload"])
+router = APIRouter(tags=["upload"])
 
 ALLOWED_MIME = {
     "application/pdf",
@@ -22,7 +22,7 @@ ALLOWED_MIME = {
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
-@router.post("", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile,
     db: DBDep,
@@ -84,7 +84,7 @@ async def upload_document(
             "tenant_id": str(tenant_id),
             "mime_type": file.content_type,
         },
-        queue="slow_queue",
+        queue="fast_queue",
     )
 
     doc.celery_task_id = task.id

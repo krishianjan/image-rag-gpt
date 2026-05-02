@@ -3,26 +3,28 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    database_url: str
-    sync_database_url: str
+    DATABASE_URL: str
+    SYNC_DATABASE_URL: str
     
     # Redis
-    redis_url: str
+    REDIS_URL: str
     
     # JWT
-    jwt_secret: str
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
     
     # AI Models
-    groq_api_key: Optional[str] = None
-    gemini_api_key: Optional[str] = None
-    openrouter_api_key: Optional[str] = None
-    mistral_api_key: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
+    MISTRAL_API_KEY: Optional[str] = None
     
     # R2 Storage
-    r2_account_id: Optional[str] = None
-    r2_access_key_id: Optional[str] = None
-    r2_secret_access_key: Optional[str] = None
-    r2_bucket_name: Optional[str] = None
+    R2_ACCOUNT_ID: Optional[str] = None
+    R2_ACCESS_KEY_ID: Optional[str] = None
+    R2_SECRET_ACCESS_KEY: Optional[str] = None
+    R2_BUCKET_NAME: Optional[str] = None
+    TMP_DIR: str = "/tmp/documind"
     
     class Config:
         env_file = ".env"

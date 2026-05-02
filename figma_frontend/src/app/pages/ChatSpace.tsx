@@ -100,7 +100,6 @@ export default function ChatSpace() {
     }, [messages.length])
 
     useEffect(() => {
-        if (!store.isAuthenticated()) navigate('/', { replace: true })
     }, [navigate])
 
     useEffect(() => {
@@ -229,7 +228,7 @@ export default function ChatSpace() {
                 <div className="w-7 h-7 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-md flex items-center justify-center">
                     <span className="text-white font-bold text-sm">D</span>
                 </div>
-                <span className="font-semibold text-slate-900 text-sm">IMAGE-OCR-GPT</span>
+                <span className="font-semibold text-slate-900 text-sm">DocuMind</span>
                 {docStatus && (
                     <>
                         <div className="h-4 w-px bg-slate-200" />
@@ -384,7 +383,7 @@ export default function ChatSpace() {
                                                 <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
                                                     <span className="text-white text-xs font-bold">D</span>
                                                 </div>
-                                                <span className="text-xs text-slate-400 font-medium">IMAGE-OCR-GPT</span>
+                                                <span className="text-xs text-slate-400 font-medium">DocuMind</span>
                                             </div>
                                         )}
                                         <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-md' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-md shadow-sm'}`}>

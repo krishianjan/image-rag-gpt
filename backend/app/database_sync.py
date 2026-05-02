@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from app.config import settings
 
 sync_engine = create_engine(
@@ -11,7 +10,6 @@ sync_engine = create_engine(
 )
 
 SyncSessionLocal = sessionmaker(sync_engine, autocommit=False, autoflush=False)
-
 
 def get_sync_db():
     db = SyncSessionLocal()
