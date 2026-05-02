@@ -92,7 +92,7 @@ async def upload_document(
 
     return UploadResponse(
         doc_id=doc_id,
-        job_id=task.id,
-        status=DocumentStatus.PENDING,
+        job_id=str(doc_id),
+        status=doc.status,
         filename=file.filename or "upload",
     )
