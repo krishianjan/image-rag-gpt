@@ -1,3 +1,4 @@
+
 import io
 import uuid
 
@@ -7,7 +8,6 @@ from app.api.deps import DBDep, TenantDep
 from app.models.documents import Document, DocumentStatus
 from app.schemas.documents import UploadResponse
 from app.services import storage
-from app.workers.tasks.parse import parse_document_task
 
 router = APIRouter(tags=["upload"])
 
@@ -77,22 +77,28 @@ async def upload_document(
     db.add(doc)
     await db.flush()
 
-    # Process synchronously (no Redis/Celery needed)
+    # Try Celery, fall back to synchronous
     try:
         from app.workers.tasks.parse import parse_document_task
-        parse_document_task(
-            doc_id=str(doc_id),
-            file_path=object_key,
-            tenant_id=str(tenant_id),
-            mime_type=file.content_type,
+        task = parse_document_task.apply_async(
+            kwargs={
+                "doc_id": str(doc_id),
+                "file_path": object_key,
+                "tenant_id": str(tenant_id),
+                "mime_type": file.content_type,
+            },
+            queue="fast_queue",
         )
-        doc.status = DocumentStatus.PROCESSING
+        doc.celery_task_id = task.id
     except Exception:
-        doc.status = DocumentStatus.PENDING
+        # Celery unavailable - mark as pending, will be picked up later
+        doc.celery_task_id = None
+
+    await db.flush()
 
     return UploadResponse(
         doc_id=doc_id,
-        job_id=str(doc_id),
+        job_id=doc.celery_task_id or str(doc_id),
         status=doc.status,
         filename=file.filename or "upload",
     )
