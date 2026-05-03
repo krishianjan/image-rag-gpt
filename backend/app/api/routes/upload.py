@@ -1,8 +1,9 @@
 import io
 import uuid
+import threading
+import os
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DBDep, TenantDep
 from app.models.documents import Document, DocumentStatus
@@ -23,7 +24,9 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 def process_document_sync(doc_id, file_path, tenant_id, mime_type):
-    """Process document immediately without Celery"""
+    """Process document in background thread without Celery/Redis"""
+    os.environ['REDIS_URL'] = 'memory://'
+    
     from app.database_sync import SyncSessionLocal
     from app.workers.tasks.parse import parse_document_task
     from app.workers.tasks.embed import embed_chunks_task
@@ -31,16 +34,12 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
     
     db = SyncSessionLocal()
     try:
-        # Parse
+        # Call the Celery tasks directly (they work without Redis for inline calls)
         parse_document_task(doc_id=doc_id, file_path=file_path, tenant_id=tenant_id, mime_type=mime_type)
-        
-        # Embed
         embed_chunks_task(doc_id=doc_id, tenant_id=tenant_id)
-        
-        # Extract
         extract_document_task(doc_id=doc_id, tenant_id=tenant_id)
         
-        # Update status
+        # Mark as READY
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
             doc.status = DocumentStatus.READY
@@ -49,7 +48,7 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
             doc.status = DocumentStatus.FAILED
-            doc.error_message = str(e)
+            doc.error_message = str(e)[:500]
             db.commit()
     finally:
         db.close()
@@ -101,10 +100,10 @@ async def upload_document(
     await db.commit()
 
     # Process in background thread
-    import threading
     thread = threading.Thread(
         target=process_document_sync,
-        args=(str(doc_id), object_key, str(tenant_id), file.content_type)
+        args=(str(doc_id), object_key, str(tenant_id), file.content_type),
+        daemon=True
     )
     thread.start()
 
