@@ -66,6 +66,23 @@ export default function Navbar() {
 
           <Clock className="w-4 h-4" />
 
+
+        <a
+          href="https://calendar.app.google/pbSiQdBVy3tnyzZZ9"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium"
+        >
+          Book Demo
+        </a>
+
+        <button
+          onClick={() => document.getElementById('demo')?.scrollIntoView({behavior: 'smooth'})}
+          className="text-sm px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-medium"
+        >
+          Try Free
+        </button>
+
           History
 
         </button>
