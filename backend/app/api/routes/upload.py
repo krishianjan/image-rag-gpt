@@ -5,7 +5,7 @@ import threading
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.api.deps import DBDep, TenantDep
-from app.models.documents import Document, DocumentStatus
+from app.models.documents import Document, DocumentStatus, DocumentMetadata, DocumentChunk
 from app.schemas.documents import UploadResponse
 from app.services import storage
 
@@ -23,13 +23,14 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 def process_document_sync(doc_id, file_path, tenant_id, mime_type):
-    """Process document in background thread"""
+    """Process document in background thread - NO Celery/Redis needed"""
     from app.database_sync import SyncSessionLocal
     db = SyncSessionLocal()
     try:
         from app.workers.tasks.parse import _parse_document_with_docling, _parse_image
-        from app.workers.tasks.embed import embed_chunks_task
+        from app.workers.tasks.embed import _get_embedder, _chunk_toon_objects, _build_chunk_text
         from app.services import storage as storage_service
+        import uuid as uuid_module
         
         # Download file from R2
         local_path = storage_service.download_to_tmp(file_path, doc_id, suffix=".pdf")
@@ -41,27 +42,48 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
             result = _parse_document_with_docling(local_path)
         
         # Save metadata
-        from app.models.documents import DocumentMetadata
         metadata = DocumentMetadata(
             doc_id=doc_id,
             tenant_id=tenant_id,
             raw_text=result.get("markdown_output", ""),
-        structured_json=result,
+            structured_json=result,
             page_metadata=result.get("pages", []),
             tables=result.get("tables", []),
         )
         db.add(metadata)
         
-        # Update document
+        # Update document stats
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
-            doc.page_count = len(result.get("pages", []))
+            doc.page_count = len(result.get("pages", [1]))
             doc.word_count = len(result.get("markdown_output", "").split())
-            doc.status = DocumentStatus.PARSED
         db.commit()
         
-        # Generate embeddings & chunks
-        embed_chunks_task(doc_id=doc_id, tenant_id=tenant_id)
+        # Generate embeddings using internal functions
+        text_elements = result.get("text_elements", [])
+        if text_elements:
+            embedder = _get_embedder()
+            chunk_groups = _chunk_toon_objects(text_elements)
+            
+            for i, group in enumerate(chunk_groups):
+                chunk_text, bboxes, page_num = _build_chunk_text(group)
+                if not chunk_text.strip():
+                    continue
+                
+                embedding = embedder.encode(chunk_text).tolist()
+                
+                chunk = DocumentChunk(
+                    doc_id=doc_id,
+                    tenant_id=tenant_id,
+                    chunk_index=i,
+                    content=chunk_text,
+                    page_num=page_num,
+                    bbox=bboxes[0] if bboxes else None,
+                    embedding=embedding,
+                )
+                db.add(chunk)
+            
+            db.commit()
         
         # Mark as READY
         doc = db.query(Document).filter(Document.id == doc_id).first()
