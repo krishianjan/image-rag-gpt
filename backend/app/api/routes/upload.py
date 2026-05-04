@@ -23,11 +23,12 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 def process_document_sync(doc_id, file_path, tenant_id, mime_type):
-    """Process document in background thread - no Celery/Redis needed"""
+    """Process document in background thread"""
     from app.database_sync import SyncSessionLocal
     db = SyncSessionLocal()
     try:
         from app.workers.tasks.parse import _parse_document_with_docling, _parse_image
+        from app.workers.tasks.embed import embed_chunks_task
         from app.services import storage as storage_service
         
         # Download file from R2
@@ -55,8 +56,17 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
         if doc:
             doc.page_count = len(result.get("pages", []))
             doc.word_count = len(result.get("markdown", "").split())
-            doc.status = DocumentStatus.READY
+            doc.status = DocumentStatus.PARSED
         db.commit()
+        
+        # Generate embeddings & chunks
+        embed_chunks_task(doc_id=doc_id, tenant_id=tenant_id)
+        
+        # Mark as READY
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if doc:
+            doc.status = DocumentStatus.READY
+            db.commit()
             
     except Exception as e:
         doc = db.query(Document).filter(Document.id == doc_id).first()
