@@ -53,10 +53,10 @@ result = client.extract("invoice.pdf", schema="invoice_v1")
 print(result.json())`}</code>
           </pre>
           <div className="flex justify-center gap-4 mt-6">
-            <a href="https://github.com/yourusername/image-gpt" target="_blank" className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <a href="https://github.com/krishianjan/image-rag-gpt" target="_blank" className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
               <Code2 className="w-4 h-4" /> GitHub
             </a>
-            <a href="http://localhost:8000/docs" target="_blank" className="flex items-center gap-2 px-5 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700">
+            <a href="https://github.com/krishianjan/image-rag-gpt#readme" target="_blank" className="flex items-center gap-2 px-5 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700">
               <Terminal className="w-4 h-4" /> API Docs
             </a>
           </div>

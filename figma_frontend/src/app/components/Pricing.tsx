@@ -31,12 +31,12 @@ export default function DeveloperSection() {
           </div>
 
           <div className="flex justify-center gap-4 mt-8">
-            <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <a href="https://github.com/krishianjan/image-rag-gpt#readme" target="_blank" className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
               Read the docs
-            </button>
-            <button className="flex items-center gap-2 px-6 py-3 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800">
+            </a>
+            <a href="https://github.com/krishianjan/image-rag-gpt" target="_blank" className="flex items-center gap-2 px-6 py-3 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800">
               <Github className="w-5 h-5" /> GitHub
-            </button>
+            </a>
           </div>
         </div>
       </div>
