@@ -18,7 +18,7 @@ export default function Navbar() {
 
     <nav className="h-16 bg-white border-b border-slate-200 flex items-center px-6 gap-4 flex-shrink-0">
 
-      <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('/')}>
+      <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { window.scrollTo({top: 0, behavior: 'smooth'}); setTimeout(() => document.getElementById('demo')?.scrollIntoView({behavior: 'smooth'}), 300); }}>
 
         <div className="relative">
 
@@ -77,10 +77,10 @@ export default function Navbar() {
         </a>
 
         <button
-          onClick={() => document.getElementById('demo')?.scrollIntoView({behavior: 'smooth'})}
+          onClick={() => { navigate('/'); setTimeout(() => document.getElementById('demo')?.scrollIntoView({behavior: 'smooth'}), 100); }}
           className="text-sm px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-medium"
         >
-          Try Free
+          Try Free Now
         </button>
 
           History

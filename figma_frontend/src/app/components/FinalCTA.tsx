@@ -9,12 +9,18 @@ export default function FinalCTA() {
           No credit card. No setup headaches. 50 free documents.
         </p>
         <div className="flex items-center justify-center gap-4">
-          <button className="px-8 py-4 bg-indigo-600 text-white rounded-lg font-medium text-lg">
+          <button 
+            onClick={() => document.getElementById('demo')?.scrollIntoView({behavior: 'smooth'})}
+            className="px-8 py-4 bg-indigo-600 text-white rounded-lg font-medium text-lg hover:bg-indigo-700 transition-colors">
             Try Free Now →
           </button>
-          <button className="px-8 py-4 bg-white text-slate-700 rounded-lg font-medium text-lg border-2 border-slate-300">
+          <a 
+            href="https://calendar.app.google/pbSiQdBVy3tnyzZZ9" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="px-8 py-4 bg-white text-slate-700 rounded-lg font-medium text-lg border-2 border-slate-300 hover:border-indigo-300 hover:text-indigo-600 transition-colors">
             Book a Demo
-          </button>
+          </a>
         </div>
       </div>
     </section>
