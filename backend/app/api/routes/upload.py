@@ -1,7 +1,6 @@
 import io
 import uuid
 import threading
-import os
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
@@ -24,26 +23,41 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 def process_document_sync(doc_id, file_path, tenant_id, mime_type):
-    """Process document in background thread without Celery/Redis"""
-    os.environ['REDIS_URL'] = 'memory://'
-    
+    """Process document in background thread - no Celery/Redis needed"""
     from app.database_sync import SyncSessionLocal
-    from app.workers.tasks.parse import parse_document_task
-    from app.workers.tasks.embed import embed_chunks_task
-    from app.workers.tasks.extract import extract_document_task
-    
     db = SyncSessionLocal()
     try:
-        # Call the Celery tasks directly (they work without Redis for inline calls)
-        parse_document_task(doc_id=doc_id, file_path=file_path, tenant_id=tenant_id, mime_type=mime_type)
-        embed_chunks_task(doc_id=doc_id, tenant_id=tenant_id)
-        extract_document_task(doc_id=doc_id, tenant_id=tenant_id)
+        from app.workers.tasks.parse import _parse_document_with_docling, _parse_image
+        from app.services import storage as storage_service
         
-        # Mark as READY
+        # Download file from R2
+        local_path = storage_service.download_to_tmp(file_path, doc_id, suffix=".pdf")
+        
+        # Parse based on file type
+        if mime_type.startswith("image/"):
+            result = _parse_image(local_path, mime_type)
+        else:
+            result = _parse_document_with_docling(local_path)
+        
+        # Save metadata
+        from app.models.documents import DocumentMetadata
+        metadata = DocumentMetadata(
+            doc_id=doc_id,
+            tenant_id=tenant_id,
+            raw_text=result.get("markdown", ""),
+            page_metadata=result.get("pages", []),
+            tables=result.get("tables", []),
+        )
+        db.add(metadata)
+        
+        # Update document
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
+            doc.page_count = len(result.get("pages", []))
+            doc.word_count = len(result.get("markdown", "").split())
             doc.status = DocumentStatus.READY
-            db.commit()
+        db.commit()
+            
     except Exception as e:
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
@@ -63,17 +77,12 @@ async def upload_document(
     callback_url: str | None = None,
 ):
     if file.content_type not in ALLOWED_MIME:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type: {file.content_type}",
-        )
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=f"Unsupported file type: {file.content_type}")
 
     contents = await file.read()
     file_size = len(contents)
-
     if file_size == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
-
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
 
@@ -86,30 +95,14 @@ async def upload_document(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Storage failed: {exc}")
 
     doc = Document(
-        id=doc_id,
-        tenant_id=tenant_id,
-        schema_id=schema_id,
-        original_filename=file.filename or "upload",
-        file_path=object_key,
-        file_size=file_size,
-        mime_type=file.content_type,
-        status=DocumentStatus.PROCESSING,
-        callback_url=callback_url,
+        id=doc_id, tenant_id=tenant_id, schema_id=schema_id,
+        original_filename=file.filename or "upload", file_path=object_key,
+        file_size=file_size, mime_type=file.content_type,
+        status=DocumentStatus.PROCESSING, callback_url=callback_url,
     )
     db.add(doc)
     await db.commit()
 
-    # Process in background thread
-    thread = threading.Thread(
-        target=process_document_sync,
-        args=(str(doc_id), object_key, str(tenant_id), file.content_type),
-        daemon=True
-    )
-    thread.start()
+    threading.Thread(target=process_document_sync, args=(str(doc_id), object_key, str(tenant_id), file.content_type), daemon=True).start()
 
-    return UploadResponse(
-        doc_id=doc_id,
-        job_id=str(doc_id),
-        status=DocumentStatus.PROCESSING,
-        filename=file.filename or "upload",
-    )
+    return UploadResponse(doc_id=doc_id, job_id=str(doc_id), status=DocumentStatus.PROCESSING, filename=file.filename or "upload")
