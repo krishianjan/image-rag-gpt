@@ -14,7 +14,7 @@ export default function Footer() {
             </div>
             <p className="text-sm mb-6">Document intelligence without limits.</p>
             <div className="flex items-center gap-3">
-              <a href="https://github.com" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-slate-700">
+              <a href="https://github.com/krishianjanlanka/image-rag-gpt" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-slate-700">
                 <Github className="w-5 h-5" />
               </a>
               <a href="https://twitter.com" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-slate-700">
@@ -56,7 +56,7 @@ export default function Footer() {
         </div>
         <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
           <p>© 2026 IMAGE-OCR-GPT, Inc. All rights reserved.</p>
-          <p className="text-slate-500">Built with FastAPI · PostgreSQL · Groq · Docling · redis  celery </p>
+          <p className="text-slate-500">Built with FastAPI · PostgreSQL · TypeScript · Docling · redis  react.Js </p>
         </div>
       </div>
     </footer>

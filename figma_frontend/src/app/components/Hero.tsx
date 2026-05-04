@@ -34,9 +34,11 @@ export default function Hero() {
           </h1>
 
           <p className="text-center text-slate-500 text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-            Image RAG fuses 5 vision models in intelligent failover : Groq, Gemini, Qwen, and more  to extract structured JSON from images, prescriptions, contracts, and invoices in under 10 seconds. Every answer is verified against source coordinates, eliminating hallucinations and delivering 99.6% schema accuracy. Chat naturally, summarize risks, highlight opportunities, and surface key metrics  all with responses flowing in under 2 seconds.
-            Built by krishianjan. Trusted by enterprises. Loved by developers.
-            <strong className="text-slate-700"> No hallucinations. Every answer verified against source coordinates.</strong>
+            Image RAG fuses 5 vision models in intelligent failover : Groq, Gemini, Qwen, and more  to extract structured JSON from images, prescriptions, contracts, and invoices in under 10 seconds. Delivering 99.6% schema accuracy.
+            Loved by developers.
+            <strong className="text-slate-700"> Built by krishianjan
+
+              Trusted by enterprises. No hallucinations. Every answer verified against source coordinates.</strong>
           </p>
 
           {/* CTAs */}
