@@ -45,7 +45,8 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
         metadata = DocumentMetadata(
             doc_id=doc_id,
             tenant_id=tenant_id,
-            raw_text=result.get("markdown", ""),
+            raw_text=result.get("markdown_output", ""),
+        structured_json=result,
             page_metadata=result.get("pages", []),
             tables=result.get("tables", []),
         )
@@ -55,7 +56,7 @@ def process_document_sync(doc_id, file_path, tenant_id, mime_type):
         doc = db.query(Document).filter(Document.id == doc_id).first()
         if doc:
             doc.page_count = len(result.get("pages", []))
-            doc.word_count = len(result.get("markdown", "").split())
+            doc.word_count = len(result.get("markdown_output", "").split())
             doc.status = DocumentStatus.PARSED
         db.commit()
         
